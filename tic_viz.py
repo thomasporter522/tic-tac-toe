@@ -62,7 +62,7 @@ def string_of(i, j, n):
 		
 def tic_game(n = 5, bot = True, bot_visible = False):
 	
-	screenwidth = 2000
+	screenwidth = 1000
 	width = 2*sum([3**i for i in range(n)])+3**n
 	screenwidth = (screenwidth//width)*width
 	SCREENSIZE = (screenwidth, screenwidth)
