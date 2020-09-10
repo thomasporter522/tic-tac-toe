@@ -5,21 +5,29 @@ def won(taken):
 	for player in taken:
 		if "" in player: return True
 	return False
-	
-def winning(r):
-	winners = [{'1','2','3'},{'4','5','6'},{'7','8','9'},{'1','4','7'},{'2','5','8'},{'3','6','9'},{'1','5','9'},{'3','5','7'}]
-	for winner in winners:
-		if winner.intersection(r) == winner: return True
-	return False
 		
-def compute(taken, n):
-	for i in range(n):
-		prefixes = set([j[0:i] for j in taken if len(j) >= i])
-		for prefix in prefixes:
-			if prefix not in taken:
-				relevant = set([j[-1] for j in taken if (len(j) == i + 1) and j[0:i] == prefix])
-				if winning(relevant): return prefix
-	return None
+def compute(player_taken, all_taken, victory, n):
+	winners = [{'1','2','3'},{'4','5','6'},{'7','8','9'},{'1','4','7'},{'2','5','8'},{'3','6','9'},{'1','5','9'},{'3','5','7'}]
+	prefix = victory[:-1]
+	
+	
+		
+	# check if it completes a win
+	for winner in winners:
+		valid = True
+		for i in winner:
+			if prefix + i not in player_taken: valid = False
+		if valid and prefix not in player_taken:
+			return (prefix, False)
+			
+	# check if it completes a draw
+	draw = True
+	for i in range(1,10):
+		if prefix + str(i) not in all_taken: draw = False
+	if draw and prefix not in all_taken:
+		return (prefix, True)
+			
+	return (None, False)
 	
 def conflicting(move, propert, n):
 	for i in range(n+1):
@@ -48,17 +56,15 @@ def string_of(i, j, n):
 	
 	return re	
 		
-
-
-def tic_game(n = 4):
+def tic_game(n = 2, bot = False, bot_visible = True):
 	
-	screenwidth = 1000
+	screenwidth = 2000
 	width = 2*sum([3**i for i in range(n)])+3**n
 	screenwidth = (screenwidth//width)*width
 	SCREENSIZE = (screenwidth, screenwidth)
 	BLOCKSIZE = screenwidth//width
 
-	COLORS = {"player0":(100,0,240),"player1":(0,200,150),"empty":(20,20,20), "select":(200,200,200)}
+	COLORS = {"player0":(120,30,240),"player1":(10,200,180),"empty":(60,60,60), "select":(200,200,200), "draw":(70,0,0)}
 	
 	def generate_data(prefix, m):
 		if m == 0: return [[prefix]]
@@ -71,28 +77,43 @@ def tic_game(n = 4):
 					re.append(row)
 			return [[prefix]*(len(re[0]))]+re+[[prefix]*(len(re[0]))]
 		
-	def render():
+	def render(everything = False):
 		for i in range(width):
 			for j in range(width):
 				code = data[i][j]
-				color = [k*len(code) for k in COLORS["empty"]]
-				if code == current: color = COLORS["select"]
-				if code in taken[0]: color = COLORS["player0"]
-				if code in taken[1]: color = COLORS["player1"]
+				if everything or code in fresh:
+					factor = len(code)/n
+					color = [k*factor for k in COLORS["empty"]]
+					if display_hover and hover is not None and hover == code and len(code) == n:
+						color = [COLORS["player"+str(player)][k]*hover_factor + COLORS["empty"][k]*(1-hover_factor) for k in range(3)]
+					if code == current: color = COLORS["select"]
+					if code in taken[0]: color = COLORS["player0"]
+					if code in taken[1]: color = COLORS["player1"]
+					if display_draw and draw_track:
+						if code in drawn: color = COLORS["draw"]
 
-				tile = pygame.Surface((BLOCKSIZE,BLOCKSIZE))
-				tile.fill(color)
-				screen.blit(tile, (BLOCKSIZE*(i),BLOCKSIZE*(j)))
+					tile = pygame.Surface((BLOCKSIZE,BLOCKSIZE))
+					tile.fill(color)
+					screen.blit(tile, (BLOCKSIZE*(i),BLOCKSIZE*(j)))
 		pygame.display.flip()
 	
+	display_draw = True
+	display_hover = True
+	hover_factor = 0.30
+	
+	draw_track = True
+	prune_leaves = False
+	
 	current = ""
+	old_current = None
 	taken = [set(),set()]
+	drawn = set()
+	fresh = set()
 	player = 0
 	winner = None
 	round_number = 0
 	data = generate_data("",n)
-	bot = True
-	bot_visible = True
+	hover = None
 		
 	screen = pygame.display.set_mode(SCREENSIZE)
 	background = pygame.Surface(screen.get_size())
@@ -102,121 +123,103 @@ def tic_game(n = 4):
 	
 	mainloop = True
 	
-	render()
+	render(everything = True)
 	
 	while mainloop:
-		
+		move = None
 		if bot:
-				
 			move = current
 			while len(move) < n:
-				move += str(random.randint(1,9))
-			
+				nexts = [str(i) for i in range(1,10)]
+				nex = random.choice(nexts)
+				while not possible(move+nex, taken[0].union(taken[1]).union(drawn), n):
+					nexts = [i for i in nexts if i != nex]
+					nex = random.choice(nexts)
+				move += nex
+		else:
+			for event in pygame.event.get():
+				if event.type == pygame.QUIT:
+					mainloop = False 
+					
+				if display_hover:
+					mouse_position = tuple([i//BLOCKSIZE for i in pygame.mouse.get_pos()])
+					if -1 not in mouse_position:
+						old_hover = hover
+						hover = data[mouse_position[0]][mouse_position[1]]
+						fresh.add(hover)
+						if old_hover is not None: fresh.add(old_hover)
+						render()
+						fresh = set()
+							
+				if event.type == pygame.MOUSEBUTTONUP:
+					mouse_position = tuple([i//BLOCKSIZE for i in pygame.mouse.get_pos()])
+					if -1 not in mouse_position:
+						move = data[mouse_position[0]][mouse_position[1]]
+		if move is not None:			
 			valid = True
 			if move[0:len(current)] != current: valid = False
 			elif len(move) != n: valid = False
 			elif conflicting(move, taken[0].union(taken[1]), n): valid = False
-			
+						
 			if valid:
-				additions = []
-				victory = move
-				while victory is not None:
-					additions.append(victory)
-					taken[player].add(victory)
-					victory = compute(taken[player], n)
-											
-				current = additions[-1]
-				if len(current) == 0: winner = player
-				else:
-					if len(current) == 1: 
-						# version 1
-						current = ""
-						# version 2
-						if len(additions) > 1:
-							current = additions[-2]
+					#time.sleep(0.5)
+					additions = []
+					victory = move
+					draw = False
+					while victory is not None:
+						if bot_visible or not bot: 
+							fresh.add(victory)
+						if draw and draw_track: 
+							if prune_leaves: 
+								drawn = {i for i in drawn if i[:-1] != victory}
+							drawn.add(victory)
+						else: 
+							additions.append(victory)
+							if prune_leaves: 
+								taken[player] = {i for i in taken[player] if i[:-1] != victory}
+							taken[player].add(victory)
+						victory, draw = compute(taken[player], taken[0].union(taken[1]).union(drawn), victory, n)
+		
+					old_current = current							
+					current = additions[-1]
+					if len(current) == 0: winner = player
+					else:
+						if len(current) == 1: 
+							# version 1
+							current = ""
+							# version 2
+							if len(additions) > 1:
+								current = additions[-2]
+								
+						if len(current) > 1: 
+							current = current[:-2]+current[-1]
 							
-					if len(current) > 1: 
-						current = current[:-2]+current[-1]
+							while not possible(current, taken[0].union(taken[1]).union(drawn), n):
+								if current == "": 
+									winner = -1
+									break
+								else: 
+									current = current[:-1]
 						
-						while not possible(current, taken[0].union(taken[1]), n):
-							if current == "": 
-								winner = -1
-								break
-							else: 
-								current = current[:-1]
+					player = 1-player
+					round_number += 1
 					
-				player = 1-player
-				round_number += 1
-				if bot_visible: render()
-		
-				if winner is not None:
-					if winner == -1: pygame.display.set_caption("It's a draw!")
-					else: pygame.display.set_caption("Player "+str(winner)+" wins!")
-					mainloop = False
-				else:
-					message = "Turn "+str(round_number)+". Player "+str(player)+"'s turn."
-					pygame.display.set_caption(message)
-		
-		
-		else:
-		
-			for event in pygame.event.get():
-				if event.type == pygame.QUIT:
-					mainloop = False 
-				
-				
-					if event.type == pygame.MOUSEBUTTONUP:
-						mouse_position = tuple([i//BLOCKSIZE for i in pygame.mouse.get_pos()])
-						if -1 not in mouse_position:
-							
-							move = data[mouse_position[0]][mouse_position[1]]
-							valid = True
-							if move[0:len(current)] != current: valid = False
-							elif len(move) != n: valid = False
-							elif conflicting(move, taken[0].union(taken[1]), n): valid = False
-							
-							if valid:
-							
-								additions = []
-								victory = move
-								while victory is not None:
-									additions.append(victory)
-									taken[player].add(victory)
-									victory = compute(taken[player], n)
-															
-								current = additions[-1]
-								if len(current) == 0: winner = player
-								else:
-									if len(current) == 1: 
-										# version 1
-										current = ""
-										# version 2
-										if len(additions) > 1:
-											current = additions[-2]
-											
-									if len(current) > 1: 
-										current = current[:-2]+current[-1]
-										
-										while not possible(current, taken[0].union(taken[1]), n):
-											if current == "": 
-												winner = -1
-												break
-											else: 
-												current = current[:-1]
-									
-								player = 1-player
-								round_number += 1
-								render()
-						
-								if winner is not None:
-									if winner == -1: pygame.display.set_caption("It's a draw!")
-									else: pygame.display.set_caption("Player "+str(winner)+" wins!")
-									mainloop = False
-								else:
-									message = "Turn "+str(round_number)+". Player "+str(player)+"'s turn."
-									pygame.display.set_caption(message)
+					if bot_visible or not bot: 
+						fresh.add(current)
+						fresh.add(old_current)
+						render()
+						fresh = set()
+			
+					if winner is not None:
+						if winner == -1: pygame.display.set_caption("It's a draw!")
+						else: pygame.display.set_caption("Player "+str(winner)+" wins!")
+						mainloop = False
+					else:
+						message = "Turn "+str(round_number)+". Player "+str(player)+"'s turn."
+						pygame.display.set_caption(message)
+					
 	secondloop = True
-	render()
+	render(everything = True)
 	while secondloop:							
 		for event in pygame.event.get():
 			if event.type == pygame.QUIT:
