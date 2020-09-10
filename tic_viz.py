@@ -52,10 +52,11 @@ def string_of(i, j, n):
 
 def tic_game(n = 3):
 	
-	BLOCKSIZE = 40
+	SCREENWIDTH = 1000
 	
 	width = 2*sum([3**i for i in range(n)])+3**n
-	SCREENSIZE = (width*BLOCKSIZE, width*BLOCKSIZE)
+	SCREENSIZE = (SCREENWIDTH,SCREENWIDTH)
+	BLOCKSIZE = SCREENWIDTH/width
 
 	COLORS = {"player0":(100,0,240),"player1":(0,200,150),"empty":(20,20,20), "select":(200,200,200)}
 	
@@ -105,82 +106,81 @@ def tic_game(n = 3):
 	
 	while mainloop:
 		
-		for event in pygame.event.get():
-			if event.type == pygame.QUIT:
-				mainloop = False 
+		if bot:	
+			move = current
+			while len(move) < n:
+				move += str(random.randint(1,9))
+
+			valid = True
+			if move[0:len(current)] != current: valid = False
+			elif len(move) != n: valid = False
+			elif conflicting(move, taken[0].union(taken[1]), n): valid = False
+
+			if valid:
+				additions = []
+				victory = move
+				while victory is not None:
+					additions.append(victory)
+					taken[player].add(victory)
+					victory = compute(taken[player], n)
+
+				current = additions[-1]
+				if len(current) == 0: winner = player
+				else:
+					if len(current) == 1: 
+						# version 1
+						current = ""
+						# version 2
+						if len(additions) > 1:
+							current = additions[-2]
+
+					if len(current) > 1: 
+						current = current[:-2]+current[-1]
+
+						while not possible(current, taken[0].union(taken[1]), n):
+							if current == "": 
+								winner = -1
+								break
+							else: 
+								current = current[:-1]
+
+				player = 1-player
+				round_number += 1
+				if bot_visible: render()
+
+				if winner is not None:
+					if winner == -1: pygame.display.set_caption("It's a draw!")
+					else: pygame.display.set_caption("Player "+str(winner)+" wins!")
+					mainloop = False
+				else:
+					message = "Turn "+str(round_number)+". Player "+str(player)+"'s turn."
+					pygame.display.set_caption(message)
 			
-			if bot:
-				
-				move = current
-				while len(move) < n:
-					move += str(random.randint(1,9))
-				
-				valid = True
-				if move[0:len(current)] != current: valid = False
-				elif len(move) != n: valid = False
-				elif conflicting(move, taken[0].union(taken[1]), n): valid = False
-				
-				if valid:
-					additions = []
-					victory = move
-					while victory is not None:
-						additions.append(victory)
-						taken[player].add(victory)
-						victory = compute(taken[player], n)
-												
-					current = additions[-1]
-					if len(current) == 0: winner = player
-					else:
-						if len(current) == 1: 
-							# version 1
-							current = ""
-							# version 2
-							if len(additions) > 1:
-								current = additions[-2]
-								
-						if len(current) > 1: 
-							current = current[:-2]+current[-1]
-							
-							while not possible(current, taken[0].union(taken[1]), n):
-								if current == "": 
-									winner = -1
-									break
-								else: 
-									current = current[:-1]
-						
-					player = 1-player
-					round_number += 1
-					if bot_visible: render()
-			
-					if winner is not None:
-						if winner == -1: pygame.display.set_caption("It's a draw!")
-						else: pygame.display.set_caption("Player "+str(winner)+" wins!")
-						mainloop = False
-					else:
-						message = "Turn "+str(round_number)+". Player "+str(player)+"'s turn."
-						pygame.display.set_caption(message)
-			
-			
-			else:
+		else:
+
+			for event in pygame.event.get():
+				if event.type == pygame.QUIT:
+					mainloop = False 
+
 				if event.type == pygame.MOUSEBUTTONUP:
 					mouse_position = tuple([i//BLOCKSIZE for i in pygame.mouse.get_pos()])
 					if -1 not in mouse_position:
-						
+
 						move = data[mouse_position[0]][mouse_position[1]]
 						valid = True
 						if move[0:len(current)] != current: valid = False
 						elif len(move) != n: valid = False
 						elif conflicting(move, taken[0].union(taken[1]), n): valid = False
-						
+
 						if valid:
-						
+
 							additions = []
 							victory = move
 							while victory is not None:
 								additions.append(victory)
 								taken[player].add(victory)
 								victory = compute(taken[player], n)
-														
+
 							current = additions[-1]
 							if len(current) == 0: winner = player
 							else:
@@ -190,21 +190,21 @@ def tic_game(n = 3):
 									# version 2
 									if len(additions) > 1:
 										current = additions[-2]
-										
+
 								if len(current) > 1: 
 									current = current[:-2]+current[-1]
-									
+
 									while not possible(current, taken[0].union(taken[1]), n):
 										if current == "": 
 											winner = -1
 											break
 										else: 
 											current = current[:-1]
-								
+
 							player = 1-player
 							round_number += 1
 							render()
-					
+
 							if winner is not None:
 								if winner == -1: pygame.display.set_caption("It's a draw!")
 								else: pygame.display.set_caption("Player "+str(winner)+" wins!")
