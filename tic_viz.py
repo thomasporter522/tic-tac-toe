@@ -50,7 +50,7 @@ def string_of(i, j, n):
 		
 
 
-def tic_game(n):
+def tic_game(n = 3):
 	
 	BLOCKSIZE = 40
 	
@@ -222,4 +222,4 @@ def tic_game(n):
 	pygame.quit()
 
 if __name__ == "__main__":
-	tic_game(3)
+	tic_game()
