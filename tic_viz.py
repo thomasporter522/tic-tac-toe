@@ -35,7 +35,8 @@ def conflicting(move, propert, n):
 	return False
 	
 def possible(prefix, taken, n):
-	if prefix in taken: return False
+	for i in range(len(prefix)):
+		if prefix[:i] in taken: return False
 	if len(prefix) == n: return True
 	if len(prefix) < n:
 		for i in range(1,10):
@@ -56,9 +57,9 @@ def string_of(i, j, n):
 	
 	return re	
 		
-def tic_game(n = 2, bot = False, bot_visible = True):
+def tic_game(n = 3, bot = False, bot_visible = False):
 	
-	screenwidth = 2000
+	screenwidth = 1000
 	width = 2*sum([3**i for i in range(n)])+3**n
 	screenwidth = (screenwidth//width)*width
 	SCREENSIZE = (screenwidth, screenwidth)
@@ -82,9 +83,10 @@ def tic_game(n = 2, bot = False, bot_visible = True):
 			for j in range(width):
 				code = data[i][j]
 				if everything or code in fresh:
-					factor = len(code)/n
+					if n == 0: factor = 0
+					else: factor = len(code)/n
 					color = [k*factor for k in COLORS["empty"]]
-					if display_hover and hover is not None and hover == code and len(code) == n:
+					if display_hover and hover is not None and hover == code and len(code) == n and possible(code, taken_pruned[0].union(taken_pruned[1]).union(drawn_pruned), n):
 						color = [COLORS["player"+str(player)][k]*hover_factor + COLORS["empty"][k]*(1-hover_factor) for k in range(3)]
 					if code == current: color = COLORS["select"]
 					if code in taken[0]: color = COLORS["player0"]
@@ -102,12 +104,15 @@ def tic_game(n = 2, bot = False, bot_visible = True):
 	hover_factor = 0.30
 	
 	draw_track = True
-	prune_leaves = False
+	prune_leaves = True
+	wait_time = 0.01
 	
 	current = ""
 	old_current = None
 	taken = [set(),set()]
+	taken_pruned = [set(),set()]
 	drawn = set()
+	drawn_pruned = set()
 	fresh = set()
 	player = 0
 	winner = None
@@ -123,6 +128,11 @@ def tic_game(n = 2, bot = False, bot_visible = True):
 	
 	mainloop = True
 	
+	start_time = None
+	timing = n >= 3 and bot
+	if timing:
+		start_time = time.time()
+		
 	render(everything = True)
 	
 	while mainloop:
@@ -132,7 +142,7 @@ def tic_game(n = 2, bot = False, bot_visible = True):
 			while len(move) < n:
 				nexts = [str(i) for i in range(1,10)]
 				nex = random.choice(nexts)
-				while not possible(move+nex, taken[0].union(taken[1]).union(drawn), n):
+				while not possible(move+nex, taken_pruned[0].union(taken_pruned[1]).union(drawn_pruned), n):
 					nexts = [i for i in nexts if i != nex]
 					nex = random.choice(nexts)
 				move += nex
@@ -159,26 +169,33 @@ def tic_game(n = 2, bot = False, bot_visible = True):
 			valid = True
 			if move[0:len(current)] != current: valid = False
 			elif len(move) != n: valid = False
-			elif conflicting(move, taken[0].union(taken[1]), n): valid = False
+			elif conflicting(move, taken_pruned[0].union(taken_pruned[1]).union(drawn_pruned), n): valid = False
 						
 			if valid:
-					#time.sleep(0.5)
+					if bot and wait_time > 0:
+						time.sleep(wait_time)
+						
 					additions = []
 					victory = move
 					draw = False
 					while victory is not None:
 						if bot_visible or not bot: 
 							fresh.add(victory)
-						if draw and draw_track: 
-							if prune_leaves: 
-								drawn = {i for i in drawn if i[:-1] != victory}
-							drawn.add(victory)
+						if prune_leaves: 
+							if draw_track:
+								drawn_pruned = {i for i in drawn_pruned if i[:len(victory)] != victory}
+							taken_pruned[0] = {i for i in taken_pruned[0] if i[:len(victory)] != victory}
+							taken_pruned[1] = {i for i in taken_pruned[1] if i[:len(victory)] != victory}
+						if draw: 
+							if draw_track:
+								drawn_pruned.add(victory)
+								drawn.add(victory)
 						else: 
 							additions.append(victory)
-							if prune_leaves: 
-								taken[player] = {i for i in taken[player] if i[:-1] != victory}
+							taken_pruned[player].add(victory)
 							taken[player].add(victory)
-						victory, draw = compute(taken[player], taken[0].union(taken[1]).union(drawn), victory, n)
+							
+						victory, draw = compute(taken_pruned[player], taken_pruned[0].union(taken_pruned[1]).union(drawn_pruned), victory, n)
 		
 					old_current = current							
 					current = additions[-1]
@@ -194,12 +211,12 @@ def tic_game(n = 2, bot = False, bot_visible = True):
 						if len(current) > 1: 
 							current = current[:-2]+current[-1]
 							
-							while not possible(current, taken[0].union(taken[1]).union(drawn), n):
-								if current == "": 
-									winner = -1
-									break
-								else: 
-									current = current[:-1]
+						while not possible(current, taken_pruned[0].union(taken_pruned[1]).union(drawn_pruned), n):
+							if current == "": 
+								winner = -1
+								break
+							else: 
+								current = current[:-1]
 						
 					player = 1-player
 					round_number += 1
@@ -217,7 +234,12 @@ def tic_game(n = 2, bot = False, bot_visible = True):
 					else:
 						message = "Turn "+str(round_number)+". Player "+str(player)+"'s turn."
 						pygame.display.set_caption(message)
-					
+	
+	if timing:
+		duration = time.time() - start_time
+		if duration >= 10: duration = int(duration)
+		print("Took",duration,"seconds.")	
+		
 	secondloop = True
 	render(everything = True)
 	while secondloop:							
