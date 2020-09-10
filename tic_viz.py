@@ -35,11 +35,14 @@ def conflicting(move, propert, n):
 	return False
 	
 def possible(prefix, taken, n):
-	for i in range(len(prefix)):
-		if prefix[:i] in taken: return False
-	if len(prefix) == n: return True
+	for i in range(len(prefix)+1):
+		if prefix[0:i] in taken: return False
+	if len(prefix) == n:
+		return True
+	assert len(prefix) <= n 
 	if len(prefix) < n:
 		for i in range(1,10):
+			assert i in [1,2,3,4,5,6,7,8,9]
 			if possible(prefix+str(i), taken, n): return True
 	return False
 	
@@ -57,9 +60,9 @@ def string_of(i, j, n):
 	
 	return re	
 		
-def tic_game(n = 3, bot = False, bot_visible = False):
+def tic_game(n = 5, bot = True, bot_visible = False):
 	
-	screenwidth = 1000
+	screenwidth = 2000
 	width = 2*sum([3**i for i in range(n)])+3**n
 	screenwidth = (screenwidth//width)*width
 	SCREENSIZE = (screenwidth, screenwidth)
@@ -99,13 +102,13 @@ def tic_game(n = 3, bot = False, bot_visible = False):
 					screen.blit(tile, (BLOCKSIZE*(i),BLOCKSIZE*(j)))
 		pygame.display.flip()
 	
-	display_draw = True
+	display_draw = False
 	display_hover = True
 	hover_factor = 0.30
 	
-	draw_track = True
-	prune_leaves = True
-	wait_time = 0.01
+	draw_track = False
+	prune_leaves = False
+	wait_time = 0
 	
 	current = ""
 	old_current = None
@@ -172,68 +175,68 @@ def tic_game(n = 3, bot = False, bot_visible = False):
 			elif conflicting(move, taken_pruned[0].union(taken_pruned[1]).union(drawn_pruned), n): valid = False
 						
 			if valid:
-					if bot and wait_time > 0:
-						time.sleep(wait_time)
-						
-					additions = []
-					victory = move
-					draw = False
-					while victory is not None:
-						if bot_visible or not bot: 
-							fresh.add(victory)
-						if prune_leaves: 
-							if draw_track:
-								drawn_pruned = {i for i in drawn_pruned if i[:len(victory)] != victory}
-							taken_pruned[0] = {i for i in taken_pruned[0] if i[:len(victory)] != victory}
-							taken_pruned[1] = {i for i in taken_pruned[1] if i[:len(victory)] != victory}
-						if draw: 
-							if draw_track:
-								drawn_pruned.add(victory)
-								drawn.add(victory)
-						else: 
-							additions.append(victory)
-							taken_pruned[player].add(victory)
-							taken[player].add(victory)
-							
-						victory, draw = compute(taken_pruned[player], taken_pruned[0].union(taken_pruned[1]).union(drawn_pruned), victory, n)
-		
-					old_current = current							
-					current = additions[-1]
-					if len(current) == 0: winner = player
-					else:
-						if len(current) == 1: 
-							# version 1
-							current = ""
-							# version 2
-							if len(additions) > 1:
-								current = additions[-2]
-								
-						if len(current) > 1: 
-							current = current[:-2]+current[-1]
-							
-						while not possible(current, taken_pruned[0].union(taken_pruned[1]).union(drawn_pruned), n):
-							if current == "": 
-								winner = -1
-								break
-							else: 
-								current = current[:-1]
-						
-					player = 1-player
-					round_number += 1
+				if bot and wait_time > 0:
+					time.sleep(wait_time)
 					
+				additions = []
+				victory = move
+				draw = False
+				while victory is not None:
 					if bot_visible or not bot: 
-						fresh.add(current)
-						fresh.add(old_current)
-						render()
-						fresh = set()
-			
-					if winner is not None:
-						if winner == -1: pygame.display.set_caption("It's a draw!")
-						else: pygame.display.set_caption("Player "+str(winner)+" wins!")
-						mainloop = False
-					else:
-						message = "Turn "+str(round_number)+". Player "+str(player)+"'s turn."
-						pygame.display.set_caption(message)
+						fresh.add(victory)
+					if prune_leaves: 
+						if draw_track:
+							drawn_pruned = {i for i in drawn_pruned if i[:len(victory)] != victory}
+						taken_pruned[0] = {i for i in taken_pruned[0] if i[:len(victory)] != victory}
+						taken_pruned[1] = {i for i in taken_pruned[1] if i[:len(victory)] != victory}
+					if draw: 
+						if draw_track:
+							drawn_pruned.add(victory)
+							drawn.add(victory)
+					else: 
+						additions.append(victory)
+						taken_pruned[player].add(victory)
+						taken[player].add(victory)
+						
+					victory, draw = compute(taken_pruned[player], taken_pruned[0].union(taken_pruned[1]).union(drawn_pruned), victory, n)
+	
+				old_current = current							
+				current = additions[-1]
+				if len(current) == 0: winner = player
+				else:
+					if len(current) == 1: 
+						# version 1
+						current = ""
+						# version 2
+						if len(additions) > 1:
+							current = additions[-2]
+							
+					if len(current) > 1: 
+						current = current[:-2]+current[-1]
+											
+					while not possible(current, taken_pruned[0].union(taken_pruned[1]).union(drawn_pruned), n):
+						if current == "": 
+							winner = -1
+							break
+						else: 
+							current = current[:-1]
+					
+				player = 1-player
+				round_number += 1
+				
+				if bot_visible or not bot: 
+					fresh.add(current)
+					fresh.add(old_current)
+					render()
+					fresh = set()
+		
+				if winner is not None:
+					if winner == -1: pygame.display.set_caption("It's a draw!")
+					else: pygame.display.set_caption("Player "+str(winner)+" wins!")
+					mainloop = False
+				else:
+					message = "Turn "+str(round_number)+". Player "+str(player)+"'s turn. "+current
+					pygame.display.set_caption(message)
 	
 	if timing:
 		duration = time.time() - start_time
