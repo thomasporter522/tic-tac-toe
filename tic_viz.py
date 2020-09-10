@@ -52,7 +52,7 @@ def string_of(i, j, n):
 
 def tic_game(n):
 	
-	BLOCKSIZE = 3
+	BLOCKSIZE = 40
 	
 	width = 2*sum([3**i for i in range(n)])+3**n
 	SCREENSIZE = (width*BLOCKSIZE, width*BLOCKSIZE)
@@ -91,7 +91,7 @@ def tic_game(n):
 	round_number = 0
 	data = generate_data("",n)
 	bot = True
-	bot_visible = False
+	bot_visible = True
 		
 	screen = pygame.display.set_mode(SCREENSIZE)
 	background = pygame.Surface(screen.get_size())
@@ -222,4 +222,4 @@ def tic_game(n):
 	pygame.quit()
 
 if __name__ == "__main__":
-	tic_game(5)
+	tic_game(3)
