@@ -4,3 +4,6 @@ Tic-Tac-Toe can be generalized by allowing each square of the board to contain i
 
 This program can run a game of this sort for any level of nestedness, n. 
 
+Here's a randomly played game of size n = 7:
+
+![plot](./7_Layers.png)
