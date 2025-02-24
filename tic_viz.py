@@ -61,7 +61,7 @@ def string_of(i, j, n):
 	
 	return re	
 		
-def tic_game(n = 4, bot = True, bot_visible = False):
+def tic_game(n = 4, bot = True, bot_visible = True):
 	
 	screenwidth = 1000
 	width = 2*sum([3**i for i in range(n)])+3**n
